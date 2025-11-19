@@ -1,0 +1,12 @@
+/* Scope Bootstrap CSS chỉ cho auth-wrapper */
+.auth-wrapper {
+    /* Bootstrap styles được apply chỉ trong div này */
+}
+
+/* Override các style không mong muốn ngoài auth-wrapper */
+:not(.auth-wrapper) .form-control,
+:not(.auth-wrapper) .btn,
+:not(.auth-wrapper) .alert,
+:not(.auth-wrapper) .card {
+    /* Reset lại nếu cần */
+}
