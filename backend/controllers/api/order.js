@@ -254,7 +254,23 @@ router.get('/vnpay_return', async function (req, res, next) {
     }
 
     // Redirect user back to frontend with VNPAY response params
-    res.redirect('http://localhost:3000/vnpay_return?' + querystring.stringify(vnp_Params, { encode: false }));
+    try {
+        // Prefer a configured frontend return URL, otherwise allow env override, fallback to vite default
+        let frontendBase = null;
+        try {
+            frontendBase = config.get('frontend_ReturnUrl');
+        } catch (e) {
+            // config key missing, ignore
+        }
+        frontendBase = frontendBase || process.env.FRONTEND_ORIGIN || 'http://localhost:5173';
+        const redirectUrl = frontendBase.replace(/\/$/, '') + '/vnpay_return?' + querystring.stringify(vnp_Params, { encode: false });
+        console.log('[vnpay_return] redirecting to frontend:', redirectUrl);
+        res.redirect(redirectUrl);
+    } catch (err) {
+        console.error('[vnpay_return] redirect error:', err && err.message);
+        // Last-resort: fall back to previous localhost:3005 redirect so something happens
+        res.redirect('http://localhost:3005/vnpay_return?' + querystring.stringify(vnp_Params, { encode: false }));
+    }
 });
 
 router.get('/vnpay_ipn', async function (req, res, next) {
@@ -491,6 +507,26 @@ router.post('/refund', async function (req, res, next) {
         res.status(500).json({ error: 'VNPAY refund request failed' });
     }
 
+});
+
+// API: get order by id (used by frontend after VNPAY redirect to confirm status)
+router.get('/get/:id', async function (req, res, next) {
+    try {
+        const id = req.params.id;
+        if (!id) return res.status(400).json({ message: 'Missing id' });
+        let oid;
+        try {
+            oid = new mongoose.Types.ObjectId(id);
+        } catch (e) {
+            return res.status(400).json({ message: 'Invalid order id' });
+        }
+        const order = await mongoose.connection.collection('orders').findOne({ _id: oid });
+        if (!order) return res.status(404).json({ message: 'Order not found' });
+        return res.json(order);
+    } catch (err) {
+        console.error('[order.get] error:', err && err.message);
+        return res.status(500).json({ message: 'Server error', error: err && err.message });
+    }
 });
 
 function sortObject(obj) {

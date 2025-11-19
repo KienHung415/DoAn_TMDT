@@ -11,6 +11,7 @@ import Contant from './components/Contant/Contant'
 import Login from './components/auth/login'
 import Register from './components/auth/register'
 import ForgotPassword from './components/auth/forgot-password'
+import VNPayReturn from './payment/VNPayReturn'
 
 
 const router = createBrowserRouter([
@@ -37,6 +38,10 @@ const router = createBrowserRouter([
   {
     path: '/forgot-password',
     element: <ForgotPassword />
+  },
+  {
+    path: '/vnpay_return',
+    element: <VNPayReturn />
   },
 ])
 

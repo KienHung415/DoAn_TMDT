@@ -1,11 +1,54 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+
+// API base (override with VITE_API_BASE in frontend/.env)
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3005/api";
 
 const OrderSuccess = () => {
     const navigate = useNavigate();
     const { orderId } = useParams();
+    const [order, setOrder] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
-    useEffect(() => { }, [orderId]);
+    useEffect(() => {
+        if (!orderId) return;
+        let cancelled = false;
+        const fetchOrder = async () => {
+            try {
+                setLoading(true);
+                const res = await fetch(`${API_BASE}/orders/get/${orderId}`, { credentials: 'include' });
+                if (!res.ok) throw new Error('Không lấy được thông tin đơn hàng');
+                const data = await res.json();
+                if (!cancelled) setOrder(data);
+            } catch (err) {
+                if (!cancelled) setError(err.message || 'Lỗi server');
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        };
+        fetchOrder();
+        return () => { cancelled = true; };
+    }, [orderId]);
+
+    const renderPaymentMethod = (m) => {
+        if (!m) return '---';
+        if (m.toLowerCase() === 'vnpay') return 'VNPAY';
+        if (m.toLowerCase() === 'cod' || m.toLowerCase().includes('cod')) return 'Thanh toán khi nhận hàng (COD)';
+        return m;
+    };
+
+    const renderStatus = (o) => {
+        // prefer paymentStatus field
+        const ps = o?.paymentStatus;
+        if (ps === 'paid') return 'Thành công';
+        if (ps === 'failed') return 'Thất bại';
+        // fallback to numeric status
+        const s = o?.status;
+        if (s === 1) return 'Thành công';
+        if (s === 2) return 'Thất bại';
+        return 'Chờ xử lý';
+    };
 
     return (
         <div className="bg-gray-50 min-h-screen py-10">
@@ -50,11 +93,17 @@ const OrderSuccess = () => {
                     {/* Info Box */}
                     <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
                         <h3 className="font-semibold text-yellow-800 mb-2">Thông tin đơn hàng</h3>
-                        <ul className="text-sm text-yellow-700 space-y-1 text-left">
-                            <li>Phương thức thanh toán: <strong>Thanh toán khi nhận hàng (COD)</strong></li>
-                            <li>Trạng thái: <strong>Chờ xử lý</strong></li>
-                            <li>Bạn sẽ nhận thông báo qua email khi đơn hàng được giao</li>
-                        </ul>
+                        {loading ? (
+                            <p className="text-sm text-yellow-700">Đang tải thông tin đơn hàng...</p>
+                        ) : error ? (
+                            <p className="text-sm text-red-600">Lỗi: {error}</p>
+                        ) : (
+                            <ul className="text-sm text-yellow-700 space-y-1 text-left">
+                                <li>Phương thức thanh toán: <strong>{renderPaymentMethod(order?.paymentMethod)}</strong></li>
+                                <li>Trạng thái: <strong>{renderStatus(order)}</strong></li>
+                                <li>Bạn sẽ nhận thông báo qua email khi đơn hàng được giao</li>
+                            </ul>
+                        )}
                     </div>
 
                     {/* Action Buttons */}
