@@ -228,24 +228,27 @@ router.get('/vnpay_return', async function (req, res, next) {
                         console.error('[vnpay_return] Error during stock deduction:', err && err.message);
                     }
 
-                    // Mark order as paid/processed and set payment info
-                    await mongoose.connection.collection('orders').updateOne(
-                        { _id: oid },
-                        { $set: { status: 1, paymentStatus: 'paid', paymentMethod: 'vnpay' } }
-                    );
+                    // chuyển trạng thái đơn hàng thành paid khi mã của VNPAY báo thành công
+                    const vnpResponseCode = vnp_Params['vnp_ResponseCode'] || req.query.vnp_ResponseCode;
+                    if (vnpResponseCode === '00') {
+                        await mongoose.connection.collection('orders').updateOne(
+                            { _id: oid },
+                            { $set: { status: 1, paymentStatus: 'paid', paymentMethod: 'vnpay' } }
+                        );
 
-                    // Xóa dữ liệu giỏ hàng
-                    const user_id = order.user_id;
-                    await mongoose.connection.collection('carts').deleteOne({ user_id: user_id });
-                    console.log('[vnpay_return] order updated and cart deleted for user_id:', user_id);
+                        // Xóa dữ liệu giỏ hàng
+                        const user_id = order.user_id;
+                        await mongoose.connection.collection('carts').deleteOne({ user_id: user_id });
+                        console.log('[vnpay_return] order updated to paid and cart deleted for user_id:', user_id);
+                    } else {
+                        console.log('[vnpay_return] vnp_ResponseCode is not success:', vnpResponseCode, ' — not updating order to paid');
+                    }
                 } else {
                     console.warn('[vnpay_return] order not found for _id:', orderId);
                 }
             } catch (innerErr) {
                 console.error('[vnpay_return] invalid order id or DB error:', innerErr.message);
             }
-
-            // res.render('success', { code: vnp_Params['vnp_ResponseCode'] })
         } else {
             console.warn('[vnpay_return] secure hash mismatch');
         }
@@ -253,14 +256,12 @@ router.get('/vnpay_return', async function (req, res, next) {
         console.error('[vnpay_return] unexpected error:', err.stack || err.message);
     }
 
-    // Redirect user back to frontend with VNPAY response params
+    // chuyển hướng về frontend với toàn bộ query string nguyên vẹn
     try {
-        // Prefer a configured frontend return URL, otherwise allow env override, fallback to vite default
         let frontendBase = null;
         try {
             frontendBase = config.get('frontend_ReturnUrl');
         } catch (e) {
-            // config key missing, ignore
         }
         frontendBase = frontendBase || process.env.FRONTEND_ORIGIN || 'http://localhost:5173';
         const redirectUrl = frontendBase.replace(/\/$/, '') + '/vnpay_return?' + querystring.stringify(vnp_Params, { encode: false });

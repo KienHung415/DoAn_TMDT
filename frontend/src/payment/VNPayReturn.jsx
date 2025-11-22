@@ -50,8 +50,8 @@ export default function VNPayReturn() {
 
                 const order = await res.json();
 
-                //  order paid when paymentStatus === 'paid'
-                if (order.paymentStatus === 'paid' || responseCode === '00') {
+                // Consider order paid only when backend reports paymentStatus === 'paid'
+                if (order.paymentStatus === 'paid') {
                     if (cancelled) return;
                     setStatusText('Thanh toán đã được xác nhận. Chuyển hướng...');
                     setConfirmed(true);
@@ -92,7 +92,7 @@ export default function VNPayReturn() {
             <div className="card mx-auto" style={{ maxWidth: 600 }}>
                 <div className="card-body">
                     <h4 className="card-title">Kết quả thanh toán VNPAY</h4>
-                    <p className="card-text">Mã giao dịch: <b>{txnRef}</b></p>
+                    const orderId = order._id || txnRef;
                     <p className="card-text">Số tiền: <b>{amount.toLocaleString()} VNĐ</b></p>
                     <hr />
                     <p>{statusText}</p>
